@@ -92,7 +92,7 @@ function Audit-1 {
     Start-Process control.exe -ArgumentList "/name Microsoft.BitLockerDriveEncryption";
     Start-Sleep -Seconds 2;
     $bl = Get-Process | Where-Object {$_.MainWindowTitle -match "BitLocker"} | Select-Object -First 1;
-    if($bl) { Set-WindowFull $bl.MainWindowHandle; }$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Bitlocker" -PassThru;
+    if($bl) { Set-WindowFull $bl.MainWindowHandle; }$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Bitlocker && echo [Ver]: 1.0" -PassThru;
     Start-Sleep -Milliseconds 800;
     Set-CmdTopRight $cmd.MainWindowHandle;
     Take-Screenshot "1_BitLocker";
