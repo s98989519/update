@@ -1,0 +1,389 @@
+Add-Type -AssemblyName System.Windows.Forms;
+Add-Type -AssemblyName System.Drawing;
+
+try {
+    $shcore = Add-Type -MemberDefinition '[DllImport("shcore.dll")] public static extern int SetProcessDpiAwareness(int awareness);' -Name "DpiUtil" -PassThru;
+    $shcore::SetProcessDpiAwareness(1); 
+} catch { 
+    [void][System.Runtime.InteropServices.Marshal]::PrelinkAll([Type]::GetType("AuditMaster"));
+}
+
+$Win32Code = @"
+using System; 
+using System.Text; 
+using System.Runtime.InteropServices;
+public class AuditMaster {
+    [StructLayout(LayoutKind.Sequential)] 
+    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool Repaint);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+    [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool BlockInput(bool fBlockIt);
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+}
+public class IME {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern IntPtr LoadKeyboardLayout(string pwszKLID, uint Flags);
+}
+"@;
+
+try { 
+    Add-Type -TypeDefinition $Win32Code -ErrorAction SilentlyContinue; 
+} catch {}
+
+$script:hostname =$env:COMPUTERNAME;
+$script:timestamp = Get-Date -Format "yyyyMMdd_HHmmss";
+$script:dateOnly = Get-Date -Format "yyyyMMdd";
+$script:datetime = Get-Date -Format "yyyy-MM-dd HH:mm:ss";
+
+$script:screenshotFolder = "C:\AuditScreenshot";
+$script:exportFolder = "C:\AuditExport";
+$script:mainBundlePath = "C:\Temp\${hostname}_${timestamp}";
+$script:subPicFolder = "$script:mainBundlePath\${hostname}_${dateOnly}_截圖";
+$script:subDocFolder = "$script:mainBundlePath\${hostname}_${dateOnly}_檔案";
+$script:shell = New-Object -ComObject Shell.Application;
+
+@($script:screenshotFolder, $script:exportFolder,$script:mainBundlePath, $script:subPicFolder,$script:subDocFolder) | ForEach-Object {
+    if (!(Test-Path $_)) { 
+        New-Item -ItemType Directory -Path $_ | Out-Null;
+    }
+}
+
+function Set-IMEEnglish { 
+    $h = [IME]::GetForegroundWindow();$kl = [IME]::LoadKeyboardLayout("00000409", 1);
+    [IME]::PostMessage($h, 0x0050, [IntPtr]::Zero,$kl) | Out-Null;
+}
+
+function Set-IMEChinese { 
+    $h = [IME]::GetForegroundWindow();$kl = [IME]::LoadKeyboardLayout("00000404", 1);
+    [IME]::PostMessage($h, 0x0050, [IntPtr]::Zero,$kl) | Out-Null;
+}
+
+function Set-WindowFull($hwnd) { 
+    if ($hwnd -ne [IntPtr]::Zero) { 
+        [AuditMaster]::ShowWindow($hwnd, 3);
+        Start-Sleep -Milliseconds 600;
+        [AuditMaster]::SetForegroundWindow($hwnd);
+    } 
+}
+
+function Set-CmdTopRight($hwnd) {$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+    [AuditMaster]::ShowWindow($hwnd, 9);
+    $cmdWidth = [int]($screen.Width * 0.30);
+    $cmdHeight = [int]($screen.Height * 0.25);
+    [AuditMaster]::MoveWindow($hwnd, ($screen.Width - $cmdWidth - 10), 10,$cmdWidth, $cmdHeight,$true);
+    [AuditMaster]::SetForegroundWindow($hwnd);
+}
+
+function Take-Screenshot($name) {
+    Start-Sleep -Seconds 1;
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+    $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height;
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap);$graphics.CopyFromScreen(0, 0, 0, 0, $bitmap.Size);$bitmap.Save("$script:screenshotFolder\${name}_${script:timestamp}.png", [System.Drawing.Imaging.ImageFormat]::Png);
+    $graphics.Dispose();$bitmap.Dispose();
+}
+
+function Audit-1 {
+    Start-Process control.exe -ArgumentList "/name Microsoft.BitLockerDriveEncryption";
+    Start-Sleep -Seconds 2;
+    $bl = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "BitLocker"} | Select-Object -First 1;
+    if($bl) { Set-WindowFull $bl.MainWindowHandle; }$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Bitlocker" -PassThru;
+    Start-Sleep -Milliseconds 800;
+    Set-CmdTopRight $cmd.MainWindowHandle;
+    Take-Screenshot "1_BitLocker";
+    if($cmd) {$cmd | Stop-Process -ErrorAction SilentlyContinue; }
+    if($bl) {$bl | Stop-Process -ErrorAction SilentlyContinue; }
+}
+
+function Audit-2 {
+    $cmdHotfix = Start-Process powershell.exe -ArgumentList "-NoExit -Command Get-HotFix" -PassThru;
+    Start-Sleep -Seconds 2;
+    Set-WindowFull $cmdHotfix.MainWindowHandle;
+    $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Windows Update" -PassThru;
+    Start-Sleep -Milliseconds 800;
+    Set-CmdTopRight $cmd.MainWindowHandle;
+    Take-Screenshot "2_WindowsUpdate";
+    $cmdHotfix | Stop-Process -ErrorAction SilentlyContinue;
+    $cmd | Stop-Process -ErrorAction SilentlyContinue;
+}
+
+function Audit-3 {
+    $psCommand = "Get-MpComputerStatus | Select-Object AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureVersion, AntivirusSignatureLastUpdated, QuickScanEndTime, FullScanEndTime, ComputerState | Format-List";
+    $df = Start-Process powershell.exe -ArgumentList "-NoExit -Command `"$psCommand`"" -PassThru;
+    Start-Sleep -Seconds 2;
+    Set-WindowFull $df.MainWindowHandle;
+    $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Windows Defender Status" -PassThru;
+    Start-Sleep -Milliseconds 800;
+    Set-CmdTopRight $cmd.MainWindowHandle;
+    Take-Screenshot "3_DefenderStatus";
+    $cmd | Stop-Process -ErrorAction SilentlyContinue;
+    $df | Stop-Process -ErrorAction SilentlyContinue;
+}
+
+function Audit-4 {
+    $platformBase = "C:\ProgramData\Microsoft\Windows Defender\Platform";
+    $latestVersionDir = Get-ChildItem -Path$platformBase -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1;
+    $mpDlpPath = if ($latestVersionDir) { "$($latestVersionDir.FullName)\MpDlpService.exe" } else { "C:\Program Files\Windows Defender\MpDlpService.exe" };
+    $msSensePath = "C:\Program Files\Windows Defender Advanced Threat Protection\MsSense.exe";
+    
+    @($msSensePath,$mpDlpPath) | ForEach-Object { 
+        $f =$_;
+        if (Test-Path $f) {$script:shell.Namespace((Split-Path $f)).ParseName((Split-Path$f -Leaf)).InvokeVerb("properties");
+        } 
+    }
+    
+    Start-Sleep -Seconds 3;
+    $script:shell.MinimizeAll();
+    Start-Sleep -Seconds 1;
+    
+    $global:hList = New-Object System.Collections.Generic.List[IntPtr];
+    $cb = [AuditMaster+EnumWindowsProc]{ param($h, $l)$c = New-Object System.Text.StringBuilder 256;
+        [AuditMaster]::GetClassName($h,$c, 256) | Out-Null;
+        if ($c.ToString() -eq "#32770") {
+            $t = New-Object System.Text.StringBuilder 256;
+            [AuditMaster]::GetWindowText($h,$t, 256) | Out-Null;
+            if ($t.ToString() -match "MpDlpService|MsSense") { 
+                $global:hList.Add($h);
+            }
+        } 
+        return $true;
+    };
+    [AuditMaster]::EnumWindows($cb, [IntPtr]::Zero);
+    
+    if ($global:hList.Count -ge 2) {$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+        for ($j = 0; $j -lt $global:hList.Count; $j++) {
+            $title = New-Object System.Text.StringBuilder 256;             [AuditMaster]::GetWindowText($global:hList[$j],$title, 256) | Out-Null;
+            $rect = New-Object AuditMaster+RECT;
+            [AuditMaster]::GetWindowRect($global:hList[$j], [ref]$rect) | Out-Null;
+            $w = $rect.Right -$rect.Left;
+            $h = $rect.Bottom -$rect.Top;
+            [AuditMaster]::ShowWindow($global:hList[$j], 9);
+            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height * 0.1),$w, $h,$true);
+            [AuditMaster]::SetForegroundWindow($global:hList[$j]);
+            Start-Sleep -Milliseconds 600;
+            
+            $tabs = if ($title.ToString() -match "MpDlpService") {4} else {3};
+            for ($i = 0; $i -lt $tabs; $i++) { 
+                [System.Windows.Forms.SendKeys]::SendWait("^{TAB}");
+                Start-Sleep -Milliseconds 400;
+            }
+        }
+        Start-Sleep -Seconds 5;
+        $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Windows Defender detail" -PassThru;
+        Start-Sleep -Milliseconds 800;
+        Set-CmdTopRight $cmd.MainWindowHandle;
+        Take-Screenshot "4_Windows_Defender_detail";
+        $cmd | Stop-Process -ErrorAction SilentlyContinue;
+        $global:hList \vert{} ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
+    }
+}
+
+function Audit-5 {
+    $dlpFiles = @("C:\Program Files\Manufacturer\Endpoint Agent\wdp.exe", "C:\Program Files\Manufacturer\Endpoint Agent\edpa.exe");
+    
+    $dlpFiles | ForEach-Object { 
+        $f =$_;
+        if (Test-Path $f) {$script:shell.Namespace((Split-Path $f)).ParseName((Split-Path$f -Leaf)).InvokeVerb("properties");
+        } 
+    }
+    
+    Start-Sleep -Seconds 5;
+    $script:shell.MinimizeAll();
+    Start-Sleep -Seconds 1;
+    
+    $global:hList = New-Object System.Collections.Generic.List[IntPtr];
+    $cb = [AuditMaster+EnumWindowsProc]{ param($h, $l)$c = New-Object System.Text.StringBuilder 256;
+        [AuditMaster]::GetClassName($h,$c, 256) | Out-Null;
+        if ($c.ToString() -eq "#32770") {
+            $t = New-Object System.Text.StringBuilder 256;
+            [AuditMaster]::GetWindowText($h,$t, 256) | Out-Null;
+            if ($t.ToString() -match "wdp|edpa") { 
+                $global:hList.Add($h);
+            }
+        } 
+        return $true;
+    };
+    [AuditMaster]::EnumWindows($cb, [IntPtr]::Zero);
+    
+    if ($global:hList.Count -ge 2) {$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+        for ($j = 0; $j -lt$global:hList.Count; $j++) {$rect = New-Object AuditMaster+RECT;
+            [AuditMaster]::GetWindowRect($global:hList[$j], [ref]$rect) | Out-Null;
+            $w = $rect.Right -$rect.Left;
+            $h = $rect.Bottom -$rect.Top;
+            [AuditMaster]::ShowWindow($global:hList[$j], 9);
+            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height * 0.1),$w, $h,$true);
+            [AuditMaster]::SetForegroundWindow($global:hList[$j]);
+            Start-Sleep -Milliseconds 500;
+            
+            for ($i = 0; $i -lt 4; $i++) { 
+                [System.Windows.Forms.SendKeys]::SendWait("^{TAB}");
+                Start-Sleep -Milliseconds 300;
+            }
+        }
+        Start-Sleep -Seconds 5;
+        $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: DLP Files" -PassThru;
+        Start-Sleep -Milliseconds 800;
+        Set-CmdTopRight $cmd.MainWindowHandle;
+        Take-Screenshot "5_DLP_Files";
+        $cmd | Stop-Process -ErrorAction SilentlyContinue;
+        $global:hList \vert{} ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
+    }
+}
+
+function Audit-6 {
+    Start-Process cmd.exe -ArgumentList "/c slmgr /dli";
+    Start-Sleep -Seconds 4;
+    
+    $global:licH = [IntPtr]::Zero;
+    $cb = [AuditMaster+EnumWindowsProc]{ param($h, $l)$t = New-Object System.Text.StringBuilder 256;
+        [AuditMaster]::GetWindowText($h,$t, 256) | Out-Null;
+        if ($t.ToString() -match "Windows Script Host") { 
+            $global:licH =$h;
+        } 
+        return $true;
+    };
+    [AuditMaster]::EnumWindows($cb, [IntPtr]::Zero);
+    
+    if ($global:licH -ne [IntPtr]::Zero) { 
+        [AuditMaster]::ShowWindow($global:licH, 9);         [AuditMaster]::SetForegroundWindow($global:licH);
+    }
+    
+    $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: License Status" -PassThru;
+    Start-Sleep -Milliseconds 800;
+    Set-CmdTopRight $cmd.MainWindowHandle;
+    Take-Screenshot "6_LicenseStatus";
+    
+    $cmd | Stop-Process -ErrorAction SilentlyContinue;
+    if ($global:licH -ne [IntPtr]::Zero) { 
+        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}");
+        [AuditMaster]::ShowWindow($global:licH, 0);
+    }
+    Get-Process wscript -ErrorAction SilentlyContinue | Stop-Process -Force;
+}
+
+function Audit-7 {
+    @("certlm.msc", "certmgr.msc") | ForEach-Object {
+        $msc =$_;
+        $n = if($msc -eq "certlm.msc"){"7_1_Cert_Local"}else{"7_2_Cert_Current"};
+        Start-Process $msc;
+        Start-Sleep -Seconds 3;
+        
+        $act = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "Certificates|憑證"} | Select-Object -First 1;
+        if ($act) { 
+            [AuditMaster]::ShowWindow($act.MainWindowHandle, 3);
+            Start-Sleep -Milliseconds 800;
+            [AuditMaster]::SetForegroundWindow($act.MainWindowHandle);
+            [System.Windows.Forms.SendKeys]::SendWait("{DOWN}{RIGHT}");
+            Start-Sleep -Seconds 3;
+            
+            $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Certificates ($msc)" -PassThru;
+            Start-Sleep -Milliseconds 800;
+            Set-CmdTopRight $cmd.MainWindowHandle;
+            Take-Screenshot $n;
+            
+            $cmd | Stop-Process -ErrorAction SilentlyContinue;
+            $act | Stop-Process -Force;
+        }
+    }
+}
+
+function Audit-8 {
+    $script:shell.MinimizeAll();
+    Start-Sleep -Seconds 1;
+    
+    $psCmd = "Get-Service -Name WinDefend | Select-Object Name, DisplayName, Status, StartType | Format-List";
+    $psWinDefend = Start-Process powershell.exe -ArgumentList "-NoExit -Command `"$psCmd`"" -PassThru;
+    Start-Sleep -Seconds 2;
+    Set-WindowFull $psWinDefend.MainWindowHandle;
+    
+    $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: WinDefend Service" -PassThru;
+    Start-Sleep -Milliseconds 800;
+    Set-CmdTopRight $cmd.MainWindowHandle;
+    Take-Screenshot "8_WinDefend_Service";
+    
+    $cmd | Stop-Process -ErrorAction SilentlyContinue;
+    $psWinDefend | Stop-Process -ErrorAction SilentlyContinue;
+}
+
+function Audit-9 {
+    $script:shell.MinimizeAll();
+    Start-Sleep -Seconds 1;
+    
+    Start-Process "winver.exe";
+    Start-Sleep -Seconds 2;
+    
+    $winver = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "About Windows|關於 Windows"} | Select-Object -First 1;
+    if ($winver) {
+        [AuditMaster]::SetForegroundWindow($winver.MainWindowHandle);$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: WinVer" -PassThru;
+        Start-Sleep -Milliseconds 800;
+        Set-CmdTopRight $cmd.MainWindowHandle;
+        Take-Screenshot "9_WinVer";
+        
+        $cmd | Stop-Process -ErrorAction SilentlyContinue;
+        $winver | Stop-Process -ErrorAction SilentlyContinue;
+    }
+}
+
+function Audit-10 {
+    $secFile = "$script:exportFolder\SecurityPolicy_$script:timestamp.inf";
+    secedit /export /cfg $secFile | Out-Null;
+    $p = Get-Content ($secFile) \vert{} Where-Object {$_ -match "Audit" };
+    $outSec = "$script:exportFolder\Policy_$script:timestamp.txt";
+    @("========= Security Policy Report =========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Source: Local Security Policy (gpedit.msc)", "Path: Computer Configuration -> Windows Settings -> Security Settings -> Local Policies -> Audit Policy", "", $p, "=========================================") \vert{} Out-File $outSec -Encoding UTF8;
+    
+    $rPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer";
+    $r3 = if ($rPath | Test-Path) { $rPath \vert{} Get-ItemProperty } else {$null };
+    $v1 = if ($null -eq $r3.NoDriveTypeAutoRun) { "Not Configured" } elseif ($r3.NoDriveTypeAutoRun -eq 1) { "Enabled" } else { "Disabled" };
+    $v2 = if ($null -eq $r3.DontSetAutoplayCheckbox) { "Not Configured" } elseif ($r3.DontSetAutoplayCheckbox -eq 1) { "Enabled" } else { "Disabled" };
+    $v3 = if ($null -eq $r3.NoAutoplayfornonVolume) { "Not Configured" } elseif ($r3.NoAutoplayfornonVolume -eq 1) { "Enabled" } else { "Disabled" };
+    $v4 = if ($null -eq $r3.NoAutorun) { "Not Configured" } elseif ($r3.NoAutorun -eq 1) { "Enabled" } else { "Disabled" };
+    $outAuto = "$script:exportFolder\AutoPlayPolicies_$script:timestamp.txt";
+    @("=========== AutoPlay Policies ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Turn off Autoplay                               : $v1", "Prevent AutoPlay from remembering user choices : $v2", "Disallow Autoplay for non-volume devices        : $v3", "Set the default behaviour for Autorun           : $v4", "=========================================") \vert{} Out-File $outAuto -Encoding UTF8;
+    
+    $rPath5 = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop";
+    $r5 = if ($rPath5 \vert{} Test-Path) {$rPath5 | Get-ItemProperty } else { $null };$timeout5 = if ($r5 -and$r5.ScreenSaveTimeOut) { "$($r5.ScreenSaveTimeOut) seconds" } else { "Not Configured" };
+    $outScreen = "$script:exportFolder\ScreenSaverTimeout_$script:timestamp.txt";
+    @("=========== Screen Saver Timeout Policy ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Registry Path: HKLM\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop", "Setting: $timeout5", "===================================================") \vert{} Out-File $outScreen -Encoding UTF8;
+}
+
+function Start-AuditSequence {
+    param([string]$Task)
+    
+    [void][AuditMaster]::BlockInput($true);
+    Set-IMEEnglish;
+    
+    $script:shell.MinimizeAll();
+    Start-Sleep -Seconds 1;
+
+    switch ($Task) {
+        "1" { Audit-1; break; }
+        "2" { Audit-2; break; }
+        "3" { Audit-3; break; }
+        "4" { Audit-4; break; }
+        "5" { Audit-5; break; }
+        "6" { Audit-6; break; }
+        "7" { Audit-7; break; }
+        "8" { Audit-8; break; }
+        "9" { Audit-9; break; }
+        "10" { Audit-10; break; }
+        "All" {
+            Audit-1; Audit-2; Audit-3; Audit-4; Audit-5;
+            Audit-6; Audit-7; Audit-8; Audit-9; Audit-10;
+        }
+    }
+
+    [void][AuditMaster]::BlockInput($false);
+    Set-IMEChinese;
+
+    Get-ChildItem -Path $script:screenshotFolder -File \vert{} Where-Object {$_.Name -like "*$script:timestamp*" } \vert{} Copy-Item -Destination $script:subPicFolder -Force;
+    Get-ChildItem -Path $script:exportFolder -File \vert{} Where-Object {$_.Name -like "*$script:timestamp*" } \vert{} Copy-Item -Destination $script:subDocFolder -Force;
+
+    Start-Process "msedge.exe" "https://mail.hpicorp.com.tw/owa";
+    if (Test-Path $script:mainBundlePath) {$script:mainBundlePath | Invoke-Item; 
+    }
+}
