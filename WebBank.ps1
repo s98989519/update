@@ -127,13 +127,14 @@ function Audit-3 {
 
 function Audit-4 {
     $platformBase = "C:\ProgramData\Microsoft\Windows Defender\Platform";
-    $latestVersionDir = Get-ChildItem -Path$platformBase -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1;
+    $latestVersionDir = Get-ChildItem -Path ($platformBase) -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1;
     $mpDlpPath = if ($latestVersionDir) { "$($latestVersionDir.FullName)\MpDlpService.exe" } else { "C:\Program Files\Windows Defender\MpDlpService.exe" };
     $msSensePath = "C:\Program Files\Windows Defender Advanced Threat Protection\MsSense.exe";
     
-    @($msSensePath,$mpDlpPath) | ForEach-Object { 
-        $f =$_;
-        if (Test-Path $f) {$script:shell.Namespace((Split-Path $f)).ParseName((Split-Path$f -Leaf)).InvokeVerb("properties");
+    @($msSensePath, $mpDlpPath) | ForEach-Object { 
+        $f = $_;
+        if (Test-Path ($f)) { 
+            $script:shell.Namespace((Split-Path ($f))).ParseName((Split-Path ($f) -Leaf)).InvokeVerb("properties");
         } 
     }
     
@@ -142,11 +143,12 @@ function Audit-4 {
     Start-Sleep -Seconds 1;
     
     $global:hList = New-Object System.Collections.Generic.List[IntPtr];
-    $cb = [AuditMaster+EnumWindowsProc]{ param($h, $l)$c = New-Object System.Text.StringBuilder 256;
-        [AuditMaster]::GetClassName($h,$c, 256) | Out-Null;
+    $cb = [AuditMaster+EnumWindowsProc]{ param($h,$l)
+        $c = New-Object System.Text.StringBuilder 256;
+        [AuditMaster]::GetClassName($h, $c, 256) | Out-Null;
         if ($c.ToString() -eq "#32770") {
             $t = New-Object System.Text.StringBuilder 256;
-            [AuditMaster]::GetWindowText($h,$t, 256) | Out-Null;
+            [AuditMaster]::GetWindowText($h, $t, 256) | Out-Null;
             if ($t.ToString() -match "MpDlpService|MsSense") { 
                 $global:hList.Add($h);
             }
@@ -155,20 +157,22 @@ function Audit-4 {
     };
     [AuditMaster]::EnumWindows($cb, [IntPtr]::Zero);
     
-    if ($global:hList.Count -ge 2) {$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
-        for ($j = 0; $j -lt $global:hList.Count; $j++) {
-            $title = New-Object System.Text.StringBuilder 256;             [AuditMaster]::GetWindowText($global:hList[$j],$title, 256) | Out-Null;
+    if (($global:hList.Count) -ge 2) {
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+        for ($j=0; $j -lt ($global:hList.Count); $j++) {
+            $title = New-Object System.Text.StringBuilder 256;
+            [AuditMaster]::GetWindowText($global:hList[$j], $title, 256) | Out-Null;
             $rect = New-Object AuditMaster+RECT;
             [AuditMaster]::GetWindowRect($global:hList[$j], [ref]$rect) | Out-Null;
-            $w = $rect.Right -$rect.Left;
-            $h = $rect.Bottom -$rect.Top;
+            $w = ($rect.Right) - ($rect.Left);
+            $h = ($rect.Bottom) - ($rect.Top);
             [AuditMaster]::ShowWindow($global:hList[$j], 9);
-            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height * 0.1),$w, $h,$true);
+            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height*0.1), $w, $h, $true);
             [AuditMaster]::SetForegroundWindow($global:hList[$j]);
             Start-Sleep -Milliseconds 600;
             
             $tabs = if ($title.ToString() -match "MpDlpService") {4} else {3};
-            for ($i = 0; $i -lt $tabs; $i++) { 
+            for ($i=0; $i -lt ($tabs); $i++) { 
                 [System.Windows.Forms.SendKeys]::SendWait("^{TAB}");
                 Start-Sleep -Milliseconds 400;
             }
@@ -176,7 +180,7 @@ function Audit-4 {
         Start-Sleep -Seconds 5;
         $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Windows Defender detail" -PassThru;
         Start-Sleep -Milliseconds 800;
-        Set-CmdTopRight $cmd.MainWindowHandle;
+        Set-CmdTopRight ($cmd.MainWindowHandle);
         Take-Screenshot "4_Windows_Defender_detail";
         $cmd | Stop-Process -ErrorAction SilentlyContinue;
         $global:hList | ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
@@ -187,8 +191,9 @@ function Audit-5 {
     $dlpFiles = @("C:\Program Files\Manufacturer\Endpoint Agent\wdp.exe", "C:\Program Files\Manufacturer\Endpoint Agent\edpa.exe");
     
     $dlpFiles | ForEach-Object { 
-        $f =$_;
-        if (Test-Path $f) {$script:shell.Namespace((Split-Path $f)).ParseName((Split-Path$f -Leaf)).InvokeVerb("properties");
+        $f = $_;
+        if (Test-Path ($f)) { 
+            $script:shell.Namespace((Split-Path ($f))).ParseName((Split-Path ($f) -Leaf)).InvokeVerb("properties");
         } 
     }
     
@@ -197,11 +202,12 @@ function Audit-5 {
     Start-Sleep -Seconds 1;
     
     $global:hList = New-Object System.Collections.Generic.List[IntPtr];
-    $cb = [AuditMaster+EnumWindowsProc]{ param($h, $l)$c = New-Object System.Text.StringBuilder 256;
-        [AuditMaster]::GetClassName($h,$c, 256) | Out-Null;
+    $cb = [AuditMaster+EnumWindowsProc]{ param($h,$l)
+        $c = New-Object System.Text.StringBuilder 256;
+        [AuditMaster]::GetClassName($h, $c, 256) | Out-Null;
         if ($c.ToString() -eq "#32770") {
             $t = New-Object System.Text.StringBuilder 256;
-            [AuditMaster]::GetWindowText($h,$t, 256) | Out-Null;
+            [AuditMaster]::GetWindowText($h, $t, 256) | Out-Null;
             if ($t.ToString() -match "wdp|edpa") { 
                 $global:hList.Add($h);
             }
@@ -210,17 +216,19 @@ function Audit-5 {
     };
     [AuditMaster]::EnumWindows($cb, [IntPtr]::Zero);
     
-    if ($global:hList.Count -ge 2) {$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
-        for ($j = 0; $j -lt$global:hList.Count; $j++) {$rect = New-Object AuditMaster+RECT;
+    if (($global:hList.Count) -ge 2) {
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+        for ($j=0; $j -lt ($global:hList.Count); $j++) {
+            $rect = New-Object AuditMaster+RECT;
             [AuditMaster]::GetWindowRect($global:hList[$j], [ref]$rect) | Out-Null;
-            $w = $rect.Right -$rect.Left;
-            $h = $rect.Bottom -$rect.Top;
+            $w = ($rect.Right) - ($rect.Left);
+            $h = ($rect.Bottom) - ($rect.Top);
             [AuditMaster]::ShowWindow($global:hList[$j], 9);
-            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height * 0.1),$w, $h,$true);
+            [AuditMaster]::MoveWindow($global:hList[$j], ($j * ($w + 20)), [int]($screen.Height*0.1), $w, $h, $true);
             [AuditMaster]::SetForegroundWindow($global:hList[$j]);
             Start-Sleep -Milliseconds 500;
             
-            for ($i = 0; $i -lt 4; $i++) { 
+            for ($i=0; $i -lt 4; $i++) { 
                 [System.Windows.Forms.SendKeys]::SendWait("^{TAB}");
                 Start-Sleep -Milliseconds 300;
             }
@@ -228,7 +236,7 @@ function Audit-5 {
         Start-Sleep -Seconds 5;
         $cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: DLP Files" -PassThru;
         Start-Sleep -Milliseconds 800;
-        Set-CmdTopRight $cmd.MainWindowHandle;
+        Set-CmdTopRight ($cmd.MainWindowHandle);
         Take-Screenshot "5_DLP_Files";
         $cmd | Stop-Process -ErrorAction SilentlyContinue;
         $global:hList | ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
