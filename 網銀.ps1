@@ -91,7 +91,7 @@ function Take-Screenshot($name) {
 function Audit-1 {
     Start-Process control.exe -ArgumentList "/name Microsoft.BitLockerDriveEncryption";
     Start-Sleep -Seconds 2;
-    $bl = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "BitLocker"} | Select-Object -First 1;
+    $bl = Get-Process | Where-Object {$_.MainWindowTitle -match "BitLocker"} | Select-Object -First 1;
     if($bl) { Set-WindowFull $bl.MainWindowHandle; }$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: Bitlocker" -PassThru;
     Start-Sleep -Milliseconds 800;
     Set-CmdTopRight $cmd.MainWindowHandle;
@@ -179,7 +179,7 @@ function Audit-4 {
         Set-CmdTopRight $cmd.MainWindowHandle;
         Take-Screenshot "4_Windows_Defender_detail";
         $cmd | Stop-Process -ErrorAction SilentlyContinue;
-        $global:hList \vert{} ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
+        $global:hList | ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
     }
 }
 
@@ -231,7 +231,7 @@ function Audit-5 {
         Set-CmdTopRight $cmd.MainWindowHandle;
         Take-Screenshot "5_DLP_Files";
         $cmd | Stop-Process -ErrorAction SilentlyContinue;
-        $global:hList \vert{} ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
+        $global:hList | ForEach-Object { [AuditMaster]::ShowWindow($_, 0); }
     }
 }
 
@@ -273,7 +273,7 @@ function Audit-7 {
         Start-Process $msc;
         Start-Sleep -Seconds 3;
         
-        $act = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "Certificates|憑證"} | Select-Object -First 1;
+        $act = Get-Process | Where-Object {$_.MainWindowTitle -match "Certificates|憑證"} | Select-Object -First 1;
         if ($act) { 
             [AuditMaster]::ShowWindow($act.MainWindowHandle, 3);
             Start-Sleep -Milliseconds 800;
@@ -317,7 +317,7 @@ function Audit-9 {
     Start-Process "winver.exe";
     Start-Sleep -Seconds 2;
     
-    $winver = Get-Process \vert{} Where-Object {$_.MainWindowTitle -match "About Windows|關於 Windows"} | Select-Object -First 1;
+    $winver = Get-Process | Where-Object {$_.MainWindowTitle -match "About Windows|關於 Windows"} | Select-Object -First 1;
     if ($winver) {
         [AuditMaster]::SetForegroundWindow($winver.MainWindowHandle);$cmd = Start-Process cmd.exe -ArgumentList "/k cls && echo [Computer]: %COMPUTERNAME% && echo [Date]: %date% && echo [Task]: WinVer" -PassThru;
         Start-Sleep -Milliseconds 800;
@@ -332,23 +332,23 @@ function Audit-9 {
 function Audit-10 {
     $secFile = "$script:exportFolder\SecurityPolicy_$script:timestamp.inf";
     secedit /export /cfg $secFile | Out-Null;
-    $p = Get-Content ($secFile) \vert{} Where-Object {$_ -match "Audit" };
+    $p = Get-Content ($secFile) | Where-Object {$_ -match "Audit" };
     $outSec = "$script:exportFolder\Policy_$script:timestamp.txt";
-    @("========= Security Policy Report =========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Source: Local Security Policy (gpedit.msc)", "Path: Computer Configuration -> Windows Settings -> Security Settings -> Local Policies -> Audit Policy", "", $p, "=========================================") \vert{} Out-File $outSec -Encoding UTF8;
+    @("========= Security Policy Report =========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Source: Local Security Policy (gpedit.msc)", "Path: Computer Configuration -> Windows Settings -> Security Settings -> Local Policies -> Audit Policy", "", $p, "=========================================") | Out-File $outSec -Encoding UTF8;
     
     $rPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer";
-    $r3 = if ($rPath | Test-Path) { $rPath \vert{} Get-ItemProperty } else {$null };
+    $r3 = if ($rPath | Test-Path) { $rPath | Get-ItemProperty } else {$null };
     $v1 = if ($null -eq $r3.NoDriveTypeAutoRun) { "Not Configured" } elseif ($r3.NoDriveTypeAutoRun -eq 1) { "Enabled" } else { "Disabled" };
     $v2 = if ($null -eq $r3.DontSetAutoplayCheckbox) { "Not Configured" } elseif ($r3.DontSetAutoplayCheckbox -eq 1) { "Enabled" } else { "Disabled" };
     $v3 = if ($null -eq $r3.NoAutoplayfornonVolume) { "Not Configured" } elseif ($r3.NoAutoplayfornonVolume -eq 1) { "Enabled" } else { "Disabled" };
     $v4 = if ($null -eq $r3.NoAutorun) { "Not Configured" } elseif ($r3.NoAutorun -eq 1) { "Enabled" } else { "Disabled" };
     $outAuto = "$script:exportFolder\AutoPlayPolicies_$script:timestamp.txt";
-    @("=========== AutoPlay Policies ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Turn off Autoplay                               : $v1", "Prevent AutoPlay from remembering user choices : $v2", "Disallow Autoplay for non-volume devices        : $v3", "Set the default behaviour for Autorun           : $v4", "=========================================") \vert{} Out-File $outAuto -Encoding UTF8;
+    @("=========== AutoPlay Policies ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Turn off Autoplay                               : $v1", "Prevent AutoPlay from remembering user choices : $v2", "Disallow Autoplay for non-volume devices        : $v3", "Set the default behaviour for Autorun           : $v4", "=========================================") | Out-File $outAuto -Encoding UTF8;
     
     $rPath5 = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop";
-    $r5 = if ($rPath5 \vert{} Test-Path) {$rPath5 | Get-ItemProperty } else { $null };$timeout5 = if ($r5 -and$r5.ScreenSaveTimeOut) { "$($r5.ScreenSaveTimeOut) seconds" } else { "Not Configured" };
+    $r5 = if ($rPath5 | Test-Path) {$rPath5 | Get-ItemProperty } else { $null };$timeout5 = if ($r5 -and$r5.ScreenSaveTimeOut) { "$($r5.ScreenSaveTimeOut) seconds" } else { "Not Configured" };
     $outScreen = "$script:exportFolder\ScreenSaverTimeout_$script:timestamp.txt";
-    @("=========== Screen Saver Timeout Policy ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Registry Path: HKLM\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop", "Setting: $timeout5", "===================================================") \vert{} Out-File $outScreen -Encoding UTF8;
+    @("=========== Screen Saver Timeout Policy ===========", "Computer Name : $script:hostname", "Date/Time     : $script:datetime", "", "Registry Path: HKLM\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop", "Setting: $timeout5", "===================================================") | Out-File $outScreen -Encoding UTF8;
 }
 
 function Start-AuditSequence {
@@ -380,8 +380,8 @@ function Start-AuditSequence {
     [void][AuditMaster]::BlockInput($false);
     Set-IMEChinese;
 
-    Get-ChildItem -Path $script:screenshotFolder -File \vert{} Where-Object {$_.Name -like "*$script:timestamp*" } \vert{} Copy-Item -Destination $script:subPicFolder -Force;
-    Get-ChildItem -Path $script:exportFolder -File \vert{} Where-Object {$_.Name -like "*$script:timestamp*" } \vert{} Copy-Item -Destination $script:subDocFolder -Force;
+    Get-ChildItem -Path $script:screenshotFolder -File | Where-Object {$_.Name -like "*$script:timestamp*" } | Copy-Item -Destination $script:subPicFolder -Force;
+    Get-ChildItem -Path $script:exportFolder -File | Where-Object {$_.Name -like "*$script:timestamp*" } | Copy-Item -Destination $script:subDocFolder -Force;
 
     Start-Process "msedge.exe" "https://mail.hpicorp.com.tw/owa";
     if (Test-Path $script:mainBundlePath) {$script:mainBundlePath | Invoke-Item; 
