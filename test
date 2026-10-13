@@ -1,8 +1,1 @@
-
-PowerShell
-
-Add-MpPreference -ExclusionPath "C:\AuditTool"
-
-(Get-MpPreference).ExclusionPath
-
-Remove-MpPreference -ExclusionPath "C:\AuditTool"
+https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwiY77Gl2raXAxXNk1YBHd4HHogQwqsBegQIIBAB&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DpYfs4T7yZWo&usg=AOvVaw1ub0G8TDcTvnpIdRIapyTT&opi=89978449
