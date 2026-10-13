@@ -364,3 +364,4 @@ function Start-AuditSequence {
     if (Test-Path $script:mainBundlePath) {$script:mainBundlePath | Invoke-Item; 
     }
 }
+Start-AuditSequence -Task "All"
