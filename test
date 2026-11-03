@@ -5,6 +5,194 @@ https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ve
 https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwin5buniruXAxXOZfUHHeDmKCcQFnoECBAQAQ&url=https%3A%2F%2Fforum.gamer.com.tw%2FC.php%3Fbsn%3D34991%26snA%3D1480&usg=AOvVaw1RczcsH9RLnT6yFV8ZLMiO&opi=89978449
 
 
+
+
+
+
+
+
+Project Name:
+Card Game Vision Agent
+
+Objective:
+建立一個可透過螢幕辨識分析卡牌遊戲畫面的 Agent。
+
+Phase 1 - Screen Capture
+
+1. 每秒擷取畫面
+2. 支援1920x1080
+3. 支援全螢幕模式
+4. 支援視窗模式
+
+Output:
+screenshot.png
+
+------------------------------------------------
+
+Phase 2 - UI Detection
+
+需要辨識：
+
+1. 玩家血量區域
+2. 敵方血量區域
+3. 資源區域
+4. 手牌區域
+5. 場上單位區域
+6. 回合按鈕區域
+
+Output:
+
+{
+ player_hp: 20,
+ enemy_hp: 30,
+ mana: 5
+}
+
+------------------------------------------------
+
+Phase 3 - OCR Module
+
+辨識：
+
+1. 卡牌名稱
+2. 卡牌費用
+3. 關鍵字
+4. 介面文字
+
+Tools:
+- Tesseract OCR
+- PaddleOCR
+
+Output:
+
+[
+ {
+  name:"Card_A",
+  cost:2
+ }
+]
+
+------------------------------------------------
+
+Phase 4 - Unit Detection
+
+辨識：
+
+1. 單位位置
+2. 攻擊力
+3. 血量
+4. 特殊圖示
+
+Output:
+
+[
+ {
+  attack:3,
+  hp:2,
+  x:120,
+  y:300
+ }
+]
+
+------------------------------------------------
+
+Phase 5 - Rule Engine
+
+支援：
+
+IF
+THEN
+
+AND
+
+OR
+
+Priority
+
+Example:
+
+IF
+EnemyUnitCount > 0
+
+THEN
+Action = ClearBoard
+
+--------
+
+IF
+PlayerHP < 15
+
+AND
+HealCard Exists
+
+THEN
+Use HealCard
+
+------------------------------------------------
+
+Phase 6 - Action Layer
+
+支援：
+
+1. Mouse Click
+2. Mouse Drag
+3. Keyboard Press
+4. Delay
+5. Screenshot
+
+Example:
+
+Click(x,y)
+
+Drag(CardA,Board)
+
+Press(Space)
+
+------------------------------------------------
+
+Phase 7 - Logging
+
+記錄：
+
+1. 時間
+2. 畫面狀態
+3. 執行規則
+4. 執行結果
+5. 截圖
+
+Output:
+
+action.log
+
+------------------------------------------------
+
+Phase 8 - Learning
+
+建立：
+
+1. State Score
+2. Action Score
+3. Result Tracking
+
+讓Agent能分析：
+
+哪些規則成功率較高
+哪些決策成功率較高
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 NITORI宜得利 矽膠製冰盒（方格15格附蓋）
 
 
